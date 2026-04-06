@@ -169,7 +169,7 @@ function buildAffiliateBlock(productName, amazonUrl) {
 // ─────────────────────────────────────────────
 function buildPinterestCTA(pinTitle) {
     return `<!--kg-card-begin: html-->
-<div style="background:#FDFBFB;border-left:4px solid #e60023;padding:24px 28px;margin:40px 0;border-radius:0 8px 8px 0;">
+<div style="background:#FDFBFB;border-left:4px solid #B5838D;padding:24px 28px;margin:40px 0;border-radius:0 8px 8px 0;">
   <p style="font-family:serif;font-size:18px;font-weight:700;color:#4A3F41;margin:0 0 8px 0;">Save this for later</p>
   <p style="font-family:sans-serif;font-size:14px;color:#4A3F41;margin:0 0 16px 0;">Found this helpful? Pin it to your <strong>Skincare</strong> or <strong>Beauty Tips</strong> board so you can find it again.</p>
   <p style="font-family:sans-serif;font-size:13px;color:#B5838D;margin:0;font-style:italic;">${pinTitle}</p>
@@ -185,15 +185,26 @@ Role: Bạn là Chuyên gia Chiến lược Pinterest VIRAL cho blog "GlamGirls 
 
 NHIỆM VỤ: Read the blog and output a STRICT JSON array of 5 Pins. 
 
+🚨 CRITICAL RELEVANCE RULE (MOST IMPORTANT):
+Every single hook_title, description, and image_prompt MUST be 100% directly about the SPECIFIC TOPIC of this blog post.
+- If the blog is about GIFT IDEAS → all 5 pins must be about gifting beauty products.
+- If the blog is about SKINCARE ROUTINE → all 5 pins must be about skincare steps.
+- If the blog is about NAIL TOOLS → all 5 pins must be about nail care.
+- NEVER write hooks about unrelated topics (e.g. do NOT write "Why Your Hair Is Breaking" for a gift guide post).
+- The "Mistake/Warning" pin (type C) must call out a mistake related to THIS post's topic only.
+  Examples: for gift guide → "Gifts That Always Disappoint Her" / "Stop Buying These Beauty Gifts"
+            for skincare → "Why Your Skin Is Still Dull" / "You're Applying Serum Wrong"
+            for nails → "Why Your Manicure Chips Fast" / "Stop Filing Nails This Way"
+
 STRATEGY (THE CURIOSITY GAP & TIKTOK HOOKS):
 - Never reveal the "How" or "Final Product" on the Pin. 
-- Use Gen-Z/Millennial high-converting power hooks: "The Exact Routine", "The $9 Alternative", "Why You're Breaking Out", "Rich Mom Energy", "Derm Says Stop This".
+- Use Gen-Z/Millennial high-converting power hooks adapted to the blog topic.
 - Hooks must borderline on psychological clickbait but sound like an insider secret.
 
 IMPORTANT IMAGE RULES:
 - ALL image_prompts must be RELEVANT to the blog topic (e.g. if the blog is about nails, the image MUST show nails, hands, or nail products).
 - NO GENERIC SYMBOLS: Never use stop signs, traffic lights, or non-beauty warning signs. 
-- FOR PIN C (Mistakes/Warning): Describe a close-up of a "mistake" or "problem" in a high-end way. (e.g., a hand holding a dull file, a close-up of a chipped nail, a hand hovering over a product). 
+- FOR PIN C (Mistakes/Warning): Describe a visual of a "mistake" or "problem" related to THIS topic specifically.
 - Always maintain an "Editorial & High-end" aesthetic (UGC iPhone style, natural lighting, clean backgrounds).
 
 IMPORTANT: NEVER use double quotes (") inside your values. Use single quotes (') instead.
@@ -235,9 +246,13 @@ A: Lazy Girl Hack / Pain Point, B: Aesthetic Goal, C: Mistake/Warning, D: Secret
 `;
 
 // ─────────────────────────────────────────────
-//  CLAUDE SYSTEM PROMPT — 10-CRITERIA COMPLIANT
+//  CLAUDE PROMPTS — SPLIT INTO 2 PHASES
+//  Phase 1 → metadata JSON (small, reliable)
+//  Phase 2 → full HTML content (plain text, no JSON escaping)
 // ─────────────────────────────────────────────
-const SYSTEM_PROMPT = `
+
+// PHASE 1: Metadata only — fast, cheap, zero JSON corruption risk
+const SYSTEM_PROMPT_META = `
 You are a senior beauty content strategist with 10 years writing for US audiences on Pinterest-driven affiliate blogs.
 
 TARGET AUDIENCE: American women, ages 25–45, mainstream US culture.
@@ -249,24 +264,26 @@ OUTPUT: STRICTLY valid JSON — no preamble, no markdown.
 CRITICAL JSON RULE: Since rewritten_html contains HTML, you MUST meticulously escape EVERY double quote inside the HTML (e.g. class=\"kg-card\") OR exclusively use single quotes for all HTML attributes. Unescaped quotes will crash the JSON parser!
 ═══════════════════════════════════════════
 
+OUTPUT: A single STRICT JSON object. NO markdown, NO preamble, NO extra text.
+
 {
   "seo_title": "Pinterest-optimized post title (outcome-first, 55–65 chars, includes main keyword women actually search)",
   "seo_slug": "url-friendly-slug-from-title",
   "meta_description": "155-char meta description with search keyword + clear benefit",
   "pinterest_description": "150-char pin description using keywords US women search on Pinterest. Start with a hook. Include 3 relevant hashtags at end.",
-  "hero_search_query": "2-4 word Unsplash search term for hero image (e.g. 'skincare morning routine', 'vitamin c serum flatlay')",
+  "hero_search_query": "Literal visual noun for Unsplash (e.g. 'shampoo bottle', 'woman brushing hair', 'hair salon'). CRITICAL: Never use abstract concepts like 'damaged hair' or 'repair' as Unsplash fails on those.",
   "visual_prompt": "Imagen fallback prompt for HERO — UGC iPhone style, NO brand names, NO readable text on products, describe only shapes/colors/scene",
   "section_images": [
     {
       "placeholder": "{{IMG_SECTION_0}}",
-      "search_query": "2-4 word Unsplash search term specific to THIS section topic",
-      "prompt": "Imagen fallback prompt — COMPLETELY different scene from hero and all other images. NO readable text/labels. Describe angle that hides product text: overhead, macro texture, hand covering label, blurred background.",
+      "search_query": "Literal visual noun relevant to section (e.g. 'hair oil', 'shower head', 'comb'). NO abstract words.",
+      "prompt": "Imagen fallback prompt — COMPLETELY different scene from hero and all other images. NO readable text/labels.",
       "section_title": "Exact H2 heading this image belongs under",
       "aspect_ratio": "4:3"
     },
     {
       "placeholder": "{{IMG_SECTION_1}}",
-      "search_query": "2-4 word Unsplash search for this section",
+      "search_query": "Different literal visual noun",
       "prompt": "Another unique Imagen fallback prompt — different setting, lighting, composition from ALL previous",
       "section_title": "Exact H2 heading",
       "aspect_ratio": "1:1"
@@ -279,11 +296,24 @@ CRITICAL JSON RULE: Since rewritten_html contains HTML, you MUST meticulously es
       "placement_hint": "Short phrase from the article body RIGHT BEFORE where this affiliate block should be inserted — must match article text exactly"
     }
   ],
-  "rewritten_html": "Full rewritten blog post HTML — rules below"
+  "_note_products": "Extract ONLY the top 3 to 5 most important products from the text. CRITICAL: Do NOT extract more than 5 products, even if the text mentions more."
 }
 
+`;
+
+// PHASE 2: Full HTML content — returned as PLAIN TEXT (no JSON, no escaping needed)
+const SYSTEM_PROMPT_HTML = `
+You are a senior beauty content strategist with 10 years writing for US audiences on Pinterest-driven affiliate blogs.
+
+TARGET AUDIENCE: American women, ages 25–45, mainstream US culture.
+BLOG STAGE: Brand new — zero traffic. Every post must earn clicks from scratch.
+PRIMARY TRAFFIC: Pinterest (users scan fast, click on outcomes, save "how-to" content).
+
+OUTPUT: Return ONLY the raw HTML of the blog post. No JSON, no markdown fences, no preamble, no explanation.
+Start directly with <h1> and end with the last closing tag. Nothing else.
+
 ═══════════════════════════════════════════
-RULES FOR rewritten_html — READ CAREFULLY
+RULES FOR HTML CONTENT — READ CAREFULLY
 ═══════════════════════════════════════════
 
 [1] SEO & KEYWORD (Criterion 1)
@@ -371,54 +401,309 @@ For search_query: use 2-4 word Unsplash-style tags (e.g. "skincare flatlay morni
 - Each block must be preceded by a natural 1-sentence lead-in (not just dropped in).
 - Final affiliate block should appear in the last 20% of the post.
 
-[11] TOKEN SAVING & EXTREME BREVITY (CRITICAL)
-[11] LENGTH & FORMATTING LIMITS (CRITICAL TO AVOID ERROR)
-- VERY IMPORTANT: Your entire JSON output MUST NOT exceed 3500 tokens. If you write too much, the system will crash.
-- For each product, write a natural, punchy 3-4 sentence paragraph.
-- DO NOT use any HTML tables (no <table>) or bullet lists (no <ul>/<li>) for Pros and Cons. Simply write "Pro: [short text]. Con: [short text]."
-- Keep the introduction and closing paragraphs brief.
-- This structure guarantees you provide high-quality US-style recommendations while safely fitting inside the API size limits.
+[11] CONTENT DEPTH & QUALITY REQUIREMENTS (NON-NEGOTIABLE)
+- Target 1,200–1,800 words of BODY content (not counting HTML tags, affiliate blocks, or image tags).
+- For each product: write a full 5–7 sentence review paragraph with a specific personal experience angle, measurable result, and honest drawback.
+- USE <table> freely for: ingredient comparisons, product-vs-product matrices, before/after stat charts, price-tier breakdowns. Tables dramatically improve scannability and reader trust.
+- USE <ul>/<li> and <ol>/<li> freely for pros/cons lists, tip columns, routine steps, and ingredient breakdowns.
+- REQUIRED SECTIONS — every post must contain ALL of these:
+  1. Hook intro (3-second value promise + credibility signal)
+  2. "Quick Picks" styled box near the top (for Pinterest scanners who skip to recommendations)
+  3. A comparison table OR detailed pros/cons breakdown for products mentioned
+  4. An "Honest Take" / "What Actually Happened to Me" personal anecdote with a timeframe and measurable result
+  5. Step-by-step routine as a numbered <ol> list
+  6. "TL;DR / Bottom Line" callout box before the FAQ
+  7. FAQ section with a minimum of 3 Q&A pairs covering real questions US women ask
+  8. Closing paragraph with emotional resonance (what the reader's life looks like after solving this problem)
+- DO NOT write thin, generic, or robotic content. Every sentence must earn its place — it either builds trust, drives a click, or answers a real reader question.
 
 ═══════════════════════════════════════════
-HTML STRUCTURE TEMPLATE (follow this order)
+HTML STRUCTURE TEMPLATE (MANDATORY — follow this EXACT order)
 ═══════════════════════════════════════════
 
-<h1>[SEO Title from seo_title field]</h1>
+<h1>[SEO Title — outcome-first, 55-65 chars]</h1>
 
-<!-- At-a-Glance Quick Picks box -->
 <!--kg-card-begin: html-->
-<div style="background:#FDFBFB;border:1px solid #F2EBEB;padding:20px 24px;margin:24px 0;border-radius:4px;">
-  <p style="font-family:sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#B5838D;margin:0 0 12px 0;">Quick Picks — Products Mentioned</p>
-  <ul style="margin:0;padding-left:18px;font-family:sans-serif;font-size:14px;color:#4A3F41;line-height:1.8;">
-    <!-- List product names as <li> items here — these anchor the page for Pinterest scanners -->
+<div style='background:#FDFBFB;border:1px solid #F2EBEB;padding:20px 24px;margin:24px 0;border-radius:4px;'>
+  <p style='font-family:sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#B5838D;margin:0 0 12px 0;'>Quick Picks — At a Glance</p>
+  <ul style='margin:0;padding-left:18px;font-family:sans-serif;font-size:14px;color:#4A3F41;line-height:1.8;'>
+    <li><strong>[Product 1 name]</strong> — [one-line hot take: best for X]</li>
+    <li><strong>[Product 2 name]</strong> — [one-line hot take: best for Y]</li>
   </ul>
 </div>
 <!--kg-card-end: html-->
 
-[Intro paragraphs — 3-second hook]
+[HOOK INTRO — 3-4 paragraphs, max 3 sentences each. Pain point → promise → credibility.]
 
-<figure class="kg-card kg-image-card"><img src="{{IMG_HERO}}" class="kg-image" alt="[alt text]"></figure>
+<figure class='kg-card kg-image-card'><img src='{{IMG_HERO}}' class='kg-image' alt='[Pinterest SEO alt text]'></figure>
 
-{{AFFILIATE_BLOCK_0}}  ← first block within top 30%
+{{AFFILIATE_BLOCK_0}}
 
-[H2 sections with content...]
+<h2>[First Major Section — e.g. "What Makes This Serum Different"]</h2>
+<figure class='kg-card kg-image-card'><img src='{{IMG_SECTION_0}}' class='kg-image' alt='[alt text]'></figure>
+[3-5 paragraphs of rich content. Include personal experience angle.]
+
+<h2>[Comparison / Product Breakdown Section]</h2>
+<figure class='kg-card kg-image-card'><img src='{{IMG_SECTION_1}}' class='kg-image' alt='[alt text]'></figure>
+[USE a <table> here for ingredient or product comparisons. MUST wrap it in a responsive container like this:]
+<!--kg-card-begin: html-->
+<div style='width:100%;overflow-x:auto;margin:24px 0;border:1px solid #F2EBEB;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.02);'>
+  <table style='width:100%;min-width:600px;border-collapse:collapse;font-family:sans-serif;font-size:14px;text-align:left;'>
+    <thead>
+      <tr style='background:#F9F4F5;'>
+        <th style='padding:14px 18px;color:#4A3F41;font-weight:700;border-bottom:2px solid #E5D5D8;'>Feature</th>
+        <th style='padding:14px 18px;color:#4A3F41;font-weight:700;border-bottom:2px solid #E5D5D8;'>[Product A]</th>
+        <th style='padding:14px 18px;color:#4A3F41;font-weight:700;border-bottom:2px solid #E5D5D8;'>[Product B]</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style='border-bottom:1px solid #F2EBEB;'>
+        <td style='padding:14px 18px;color:#4A3F41;'>...</td>
+        <td style='padding:14px 18px;color:#4A3F41;'>...</td>
+        <td style='padding:14px 18px;color:#4A3F41;'>...</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<!--kg-card-end: html-->
 
 {{AFFILIATE_BLOCK_1}}
 
-[More H2 sections...]
+<h2>[My Honest Take Section — "What Actually Happened After 30 Days"]</h2>
+<figure class='kg-card kg-image-card'><img src='{{IMG_SECTION_2}}' class='kg-image' alt='[alt text]'></figure>
+[Personal anecdote: named timeframe (e.g. "By week two..."), measurable result (e.g. "my pores looked..."), and an honest drawback.]
+<ul>
+  <li><strong>Pros:</strong> ...</li>
+  <li><strong>Cons:</strong> ...</li>
+</ul>
+
+<h2>[Step-by-Step Routine / How to Use It]</h2>
+<figure class='kg-card kg-image-card'><img src='{{IMG_SECTION_3}}' class='kg-image' alt='[alt text]'></figure>
+<ol>
+  <li><strong>Step 1:</strong> ...</li>
+  <li><strong>Step 2:</strong> ...</li>
+  <li><strong>Step 3:</strong> ...</li>
+</ol>
 
 {{AFFILIATE_BLOCK_2}}
 
-[Routine steps as <ol>...]
+<h2>[Worth It? / Who Should Buy This]</h2>
+<figure class='kg-card kg-image-card'><img src='{{IMG_SECTION_4}}' class='kg-image' alt='[alt text]'></figure>
+[Content with specific use-case targeting: skin type, budget, lifestyle.]
 
-[TL;DR / Bottom Line box]
+<!--kg-card-begin: html-->
+<div style='background:#F9F4F5;border-left:4px solid #B5838D;padding:20px 24px;margin:32px 0;border-radius:0 8px 8px 0;'>
+  <p style='font-family:sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#B5838D;margin:0 0 10px 0;'>TL;DR — Bottom Line</p>
+  <p style='font-family:sans-serif;font-size:15px;color:#4A3F41;margin:0;line-height:1.7;'>[2-3 sentences: who this is for, what result they can expect, and whether it's worth the price.]</p>
+</div>
+<!--kg-card-end: html-->
 
-{{AFFILIATE_BLOCK_[LAST]}}  ← final block in bottom 20%
+{{AFFILIATE_BLOCK_[LAST]}}
+
+<h2>Frequently Asked Questions</h2>
+<h3>[Real question US women search, e.g. "Can you use this with retinol?"]</h3>
+<p>[Honest, specific answer — 2-3 sentences.]</p>
+<h3>[Second question]</h3>
+<p>[Answer]</p>
+<h3>[Third question]</h3>
+<p>[Answer]</p>
 
 {{PINTEREST_CTA}}
 
-[Closing paragraph — 2-3 sentences max]
+[CLOSING — 2-3 sentences. Emotional resonance: what the reader's skin/life looks like once they solve this problem. End with a gentle nudge toward action.]
 `;
+
+// ─────────────────────────────────────────────
+//  HTML → LEXICAL CONVERTER
+//  Converts flat HTML into proper Ghost Lexical nodes
+//  so content renders as native editor blocks (not 1 raw HTML card)
+// ─────────────────────────────────────────────
+
+/**
+ * Apply format bitmask (bold=1, italic=2, strikethrough=4, underline=8) recursively
+ */
+function applyFormat(nodes, formatBit) {
+    return nodes.map(node => {
+        if (node.type === 'text') {
+            return { ...node, format: (node.format || 0) | formatBit };
+        } else if (node.type === 'link') {
+            return { ...node, children: applyFormat(node.children, formatBit) };
+        }
+        return node;
+    });
+}
+
+/**
+ * Convert inline HTML (text, <strong>, <em>, <a>, <br>) to Lexical text/link nodes
+ */
+function inlineChildrenToLexical($, $el) {
+    const children = [];
+
+    $el.contents().each((_, node) => {
+        if (node.type === 'text') {
+            const text = $(node).text();
+            if (text) {
+                children.push({
+                    type: 'text', detail: 0, format: 0, mode: 'normal',
+                    style: '', text: text, version: 1
+                });
+            }
+        } else if (node.type === 'tag') {
+            const tag = node.tagName.toLowerCase();
+
+            if (tag === 'strong' || tag === 'b') {
+                children.push(...applyFormat(inlineChildrenToLexical($, $(node)), 1));
+            } else if (tag === 'em' || tag === 'i') {
+                children.push(...applyFormat(inlineChildrenToLexical($, $(node)), 2));
+            } else if (tag === 'u') {
+                children.push(...applyFormat(inlineChildrenToLexical($, $(node)), 8));
+            } else if (tag === 's' || tag === 'strike' || tag === 'del') {
+                children.push(...applyFormat(inlineChildrenToLexical($, $(node)), 4));
+            } else if (tag === 'a') {
+                children.push({
+                    type: 'link',
+                    children: inlineChildrenToLexical($, $(node)),
+                    direction: 'ltr', format: '', indent: 0,
+                    rel: $(node).attr('rel') || null,
+                    target: $(node).attr('target') || null,
+                    title: $(node).attr('title') || null,
+                    url: $(node).attr('href') || '',
+                    version: 1
+                });
+            } else if (tag === 'br') {
+                children.push({ type: 'linebreak', version: 1 });
+            } else {
+                children.push(...inlineChildrenToLexical($, $(node)));
+            }
+        }
+    });
+
+    return children;
+}
+
+/**
+ * Convert a top-level HTML element to a Lexical node
+ */
+function elementToLexicalNode($, el) {
+    const tag = el.tagName?.toLowerCase();
+    if (!tag) return null;
+
+    const $el = $(el);
+
+    switch (tag) {
+        case 'h1': case 'h2': case 'h3':
+        case 'h4': case 'h5': case 'h6': {
+            const tc = inlineChildrenToLexical($, $el);
+            if (tc.length === 0) return null;
+            return { type: 'heading', children: tc, direction: 'ltr', format: '', indent: 0, tag, version: 1 };
+        }
+
+        case 'p': {
+            const tc = inlineChildrenToLexical($, $el);
+            if (tc.length === 0) return null;
+            return { type: 'paragraph', children: tc, direction: 'ltr', format: '', indent: 0, version: 1 };
+        }
+
+        case 'figure': {
+            const img = $el.find('img');
+            if (img.length) {
+                const caption = $el.find('figcaption').text() || '';
+                return {
+                    type: 'image', version: 1,
+                    src: img.attr('src') || '',
+                    width: img.attr('width') ? parseInt(img.attr('width')) : null,
+                    height: img.attr('height') ? parseInt(img.attr('height')) : null,
+                    title: '', alt: img.attr('alt') || '',
+                    caption, cardWidth: 'wide', href: ''
+                };
+            }
+            return { type: 'html', version: 1, html: $.html(el) };
+        }
+
+        case 'ul': case 'ol': {
+            const items = [];
+            $el.children('li').each((_, li) => {
+                items.push({
+                    type: 'listitem',
+                    children: inlineChildrenToLexical($, $(li)),
+                    direction: 'ltr', format: '', indent: 0,
+                    value: items.length + 1, version: 1
+                });
+            });
+            if (items.length === 0) return null;
+            return {
+                type: 'list', children: items,
+                direction: 'ltr', format: '', indent: 0,
+                listType: tag === 'ul' ? 'bullet' : 'number',
+                start: 1, tag, version: 1
+            };
+        }
+
+        case 'blockquote': {
+            const tc = inlineChildrenToLexical($, $el);
+            if (tc.length === 0) return null;
+            return { type: 'quote', children: tc, direction: 'ltr', format: '', indent: 0, version: 1 };
+        }
+
+        case 'hr':
+            return { type: 'horizontalrule', version: 1 };
+
+        default:
+            return { type: 'html', version: 1, html: $.html(el) };
+    }
+}
+
+/**
+ * Parse a segment of regular HTML into Lexical nodes
+ */
+function parseRegularSegment(html) {
+    const trimmed = html.trim();
+    if (!trimmed) return [];
+
+    const $ = cheerio.load(trimmed, { decodeEntities: false });
+    const nodes = [];
+
+    $('body').children().each((_, el) => {
+        const node = elementToLexicalNode($, el);
+        if (node) nodes.push(node);
+    });
+
+    return nodes;
+}
+
+/**
+ * Convert full HTML (with <!--kg-card-begin: html--> markers) to Lexical children array.
+ * - Content inside kg-card markers → html card nodes (keeps custom styled blocks)
+ * - Content outside → native Lexical nodes (heading, paragraph, image, list...)
+ */
+function htmlToLexicalChildren(html) {
+    const children = [];
+    const kgCardRegex = /<!--kg-card-begin:\s*html\s*-->([\s\S]*?)<!--kg-card-end:\s*html\s*-->/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = kgCardRegex.exec(html)) !== null) {
+        if (match.index > lastIndex) {
+            children.push(...parseRegularSegment(html.substring(lastIndex, match.index)));
+        }
+        const cardHtml = match[1].trim();
+        if (cardHtml) {
+            children.push({ type: 'html', version: 1, html: cardHtml });
+        }
+        lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < html.length) {
+        children.push(...parseRegularSegment(html.substring(lastIndex)));
+    }
+
+    // Safety fallback: if nothing was created, use single html node
+    if (children.length === 0 && html.trim()) {
+        children.push({ type: 'html', version: 1, html });
+    }
+
+    return children;
+}
 
 // ─────────────────────────────────────────────
 //  MAIN PIPELINE
@@ -428,34 +713,82 @@ async function processPost(post) {
     console.log(`[START] Processing: "${post.title}"`);
     console.log(`${'─'.repeat(50)}`);
 
-    // 1. Clean HTML — strip Amazon image assets
-    const $ = cheerio.load(post.html || '');
-    $('img').each((_, el) => {
-        if ($(el).attr('src')?.includes('amazon.com')) $(el).remove();
-    });
-    const cleanHtml = $.html();
+    // 1. Clean HTML — strip Amazon images, then extract plain text to save input tokens
+    //    Claude rewrites from scratch anyway, so it only needs the TEXT content, not HTML tags.
+    //    Stripping tags cuts input tokens by ~40-50% (e.g. 4000 tokens → ~2000 tokens).
+    const $raw = cheerio.load(post.html || '');
+    $raw('img, script, style, iframe').remove();
+    const plainText = $raw('body').text()
+        .replace(/\s+/g, ' ')
+        .trim();
 
-    // 2. Call Claude — rewrite with full 10-criteria system prompt
-    console.log(`[AI] Sending to Claude Sonnet...`);
-    const aiResponse = await anthropic.messages.create({
+    const inputTokenEstimate = Math.round(plainText.length / 4);
+    console.log(`[AI] Input text: ~${plainText.length} chars (~${inputTokenEstimate} tokens after stripping HTML)`);
+
+    // 2. Call Claude PHASE 1 — Get Metadata JSON
+    console.log(`[AI] Sending to Claude Sonnet (Phase 1: Metadata)...`);
+    const aiMetaResponse = await anthropic.messages.create({
         model: 'claude-sonnet-4-6',
-        max_tokens: 5000,
+        max_tokens: 4096,
         temperature: 0.7,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: `Rewrite this blog post following all rules:\n\n${cleanHtml}` }]
+        system: SYSTEM_PROMPT_META,
+        messages: [{ role: 'user', content: `Analyze this blog post content and generate the metadata JSON with headings, images (search_query and visual_prompt), and product placements. DO NOT write the article HTML yet.\n\nORIGINAL CONTENT:\n\n${plainText}` }]
     });
 
-    // 3. Parse response
-    const rawContent = aiResponse.content[0].text;
-    const cleanContent = rawContent.replace(/```json|```/g, '').trim();
+    // 3. Parse Metadata Response
+    const rawContent = aiMetaResponse.content[0].text;
+
+    function extractJSON(raw) {
+        let text = raw.replace(/^```(?:json)?\s*/m, '').replace(/\s*```\s*$/m, '').trim();
+        try { return JSON.parse(text); } catch (_) {}
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+        if (start !== -1 && end !== -1 && end > start) {
+            try { return JSON.parse(text.substring(start, end + 1)); } catch (_) {}
+        }
+        if (start !== -1) {
+            for (let i = text.length - 1; i > start; i--) {
+                if (text[i] === '}') {
+                    try { return JSON.parse(text.substring(start, i + 1)); } catch (_) { continue; }
+                }
+            }
+        }
+        throw new Error('Could not extract valid JSON from Claude response');
+    }
+
     let parsedData;
     try {
-        parsedData = JSON.parse(cleanContent);
+        parsedData = extractJSON(rawContent);
     } catch (e) {
         console.error('[ERROR] JSON parse failed. Raw output saved for debug.');
-             fs.writeFileSync(`./backups/parse-error-${Date.now()}.txt`, rawContent, 'utf-8');
-             throw new Error('Claude returned invalid JSON');
+        fs.writeFileSync(`./backups/parse-error-${Date.now()}.txt`, rawContent, 'utf-8');
+        throw new Error(`Claude returned invalid JSON: ${e.message}`);
     }
+
+    // 3.5 Call Claude PHASE 2 — Get Full HTML
+    console.log(`[AI] Sending to Claude Sonnet (Phase 2: Full HTML)...`);
+    const aiHtmlResponse = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8192,
+        temperature: 0.7,
+        system: SYSTEM_PROMPT_HTML,
+        messages: [{
+            role: 'user',
+            content: `Rewrite this blog post following all rules in the system prompt.
+Use the following METADATA PLAN to structure your content. Ensure you place the exact image placeholders and product placeholders defined in this plan correctly.
+
+METADATA PLAN:
+${JSON.stringify(parsedData, null, 2)}
+
+ORIGINAL CONTENT (plain text):
+${plainText}`
+        }]
+    });
+
+    let finalRewrittenHtml = aiHtmlResponse.content[0].text;
+    // Strip markdown HTML fences if any
+    finalRewrittenHtml = finalRewrittenHtml.replace(/^```(?:html)?\s*/m, '').replace(/\s*```\s*$/m, '').trim();
+    parsedData.rewritten_html = finalRewrittenHtml;
 
     // 4. Backup raw parsed data
     const backupDir = './backups';
@@ -465,10 +798,11 @@ async function processPost(post) {
     console.log(`[BACKUP] Saved to: ${backupFile}`);
 
     // 5. Log cost
-    const { input_tokens, output_tokens } = aiResponse.usage;
-    const cost = (input_tokens * 0.000003) + (output_tokens * 0.000015);
+    const inputTotal = aiMetaResponse.usage.input_tokens + aiHtmlResponse.usage.input_tokens;
+    const outputTotal = aiMetaResponse.usage.output_tokens + aiHtmlResponse.usage.output_tokens;
+    const cost = (inputTotal * 0.000003) + (outputTotal * 0.000015);
     console.log(`[COST]   $${cost.toFixed(4)} (~${Math.round(cost * 25400).toLocaleString()} VNĐ)`);
-    console.log(`[USAGE]  Input: ${input_tokens} | Output: ${output_tokens}`);
+    console.log(`[USAGE]  Input: ${inputTotal} | Output: ${outputTotal}`);
 
     // 6. Resolve ALL images — Unsplash first, Imagen fallback if needed
     const sectionImages = (parsedData.section_images || []).slice(0, 5);
@@ -505,6 +839,15 @@ async function processPost(post) {
 
     // 7. Inject all placeholders into HTML
     let finalHtml = parsedData.rewritten_html;
+
+    // Log estimated word count to verify content depth (target: 1200-1800 words)
+    const wordCount = finalHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().split(' ').length;
+    console.log(`[QUALITY] Word count: ~${wordCount} words (target: 1200–1800)`);
+    if (wordCount < 800) {
+        console.warn(`[QUALITY] ⚠️  Content is thin (${wordCount} words). Consider re-running for better quality.`);
+    } else if (wordCount >= 1200) {
+        console.log(`[QUALITY] ✅ Content depth looks good.`);
+    }
 
     // Hero image
     finalHtml = finalHtml.replace(/\{\{IMG_HERO\}\}/g, heroUrl);
@@ -551,12 +894,15 @@ async function processPost(post) {
     console.log(`  Pinterest:    ${parsedData.pinterest_description}`);
     console.log(`  Products (${products.length}): ${products.map(p => p.name).join(' | ')}`);
 
-    // 10. Push to Ghost via Lexical JSON
+    // 10. Push to Ghost via Lexical JSON — proper block-level nodes
     const latestPost = await ghost.posts.read({ id: post.id });
+
+    const lexicalChildren = htmlToLexicalChildren(finalHtml);
+    console.log(`[LEXICAL] Converted HTML into ${lexicalChildren.length} native editor blocks`);
 
     const lexicalDoc = JSON.stringify({
         root: {
-            children: [{ type: 'html', version: 1, html: finalHtml }],
+            children: lexicalChildren,
             direction: null, format: '', indent: 0, type: 'root', version: 1
         }
     });
@@ -700,22 +1046,44 @@ async function createBrandedPin(bgBuffer, title, cta, layoutIndex = 0) {
     const width = 1000;
     const height = 1500;
     
-    // 1. Smart Word Wrapping
+    // 1. Smart Word Wrapping with Orphan Prevention
     const words = title.toUpperCase().split(' ');
-    const lines = [];
-    let currentLine = '';
-    const charLimit = 12; // Reduced from 18 to prevent text cutoff
-    
-    words.forEach(word => {
-        if ((currentLine + word).length > charLimit && currentLine !== '') {
-            lines.push(currentLine.trim());
-            currentLine = word + ' ';
-        } else {
-            currentLine += word + ' ';
+    const charLimit = 16; // ~16 chars/line fits the 1000px pin width well across all font sizes
+
+    function wrapWords(wordList, limit) {
+        const ls = [];
+        let cur = '';
+        wordList.forEach(w => {
+            if ((cur + w).length > limit && cur !== '') {
+                ls.push(cur.trim());
+                cur = w + ' ';
+            } else {
+                cur += w + ' ';
+            }
+        });
+        if (cur.trim()) ls.push(cur.trim());
+        return ls;
+    }
+
+    let lines = wrapWords(words, charLimit);
+
+    // Orphan prevention: if last line is a single very short word (≤3 chars like "2", "BY", "OF"),
+    // pull the last word of the previous line down to join it, creating a balanced 2-word last line.
+    if (lines.length >= 2) {
+        const lastLine = lines[lines.length - 1];
+        const lastLineWords = lastLine.split(' ').filter(Boolean);
+        if (lastLineWords.length === 1 && lastLine.length <= 4) {
+            const prevLine = lines[lines.length - 2];
+            const prevWords = prevLine.split(' ').filter(Boolean);
+            if (prevWords.length > 1) {
+                // Move last word of prev line down to join the orphan
+                const movedWord = prevWords.pop();
+                lines[lines.length - 2] = prevWords.join(' ');
+                lines[lines.length - 1] = movedWord + ' ' + lastLine;
+            }
         }
-    });
-    if (currentLine) lines.push(currentLine.trim());
-    
+    }
+
     const finalLinesRaw = lines.slice(0, 5);
     const maxLineLength = Math.max(...finalLinesRaw.map(l => l.length)) || 1;
 
