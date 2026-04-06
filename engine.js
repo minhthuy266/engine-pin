@@ -188,7 +188,13 @@ NHIỆM VỤ: Read the blog and output a STRICT JSON array of 5 Pins.
 STRATEGY (THE CURIOSITY GAP & TIKTOK HOOKS):
 - Never reveal the "How" or "Final Product" on the Pin. 
 - Use Gen-Z/Millennial high-converting power hooks: "The Exact Routine", "The $9 Alternative", "Why You're Breaking Out", "Rich Mom Energy", "Derm Says Stop This".
-- Hooks must borderline on psychological clickbait but sound like an insider secret (Fear of wasting money, Greed for perfect skin/hair, or Exposing a myth).
+- Hooks must borderline on psychological clickbait but sound like an insider secret.
+
+IMPORTANT IMAGE RULES:
+- ALL image_prompts must be RELEVANT to the blog topic (e.g. if the blog is about nails, the image MUST show nails, hands, or nail products).
+- NO GENERIC SYMBOLS: Never use stop signs, traffic lights, or non-beauty warning signs. 
+- FOR PIN C (Mistakes/Warning): Describe a close-up of a "mistake" or "problem" in a high-end way. (e.g., a hand holding a dull file, a close-up of a chipped nail, a hand hovering over a product). 
+- Always maintain an "Editorial & High-end" aesthetic (UGC iPhone style, natural lighting, clean backgrounds).
 
 IMPORTANT: NEVER use double quotes (") inside your values. Use single quotes (') instead.
 
@@ -197,10 +203,10 @@ OUTPUT FORMAT: A single JSON array with no preamble and no markdown.
   {
     "type": "A (Pain Point)",
     "board": "Exact board name from list below",
-    "hook_title": "5-7 word attention-grabbing title for the image overlay",
-    "description": "150-200 char description with keywords and hook",
+    "hook_title": "5-7 word attention-grabbing title (overlay)",
+    "description": "150-200 char description with keywords",
     "hashtags": ["#tag1", "#tag2", "#tag3"],
-    "image_prompt": "UGC iPhone style background image prompt, leave copy space at TOP/BOTTOM for text",
+    "image_prompt": "Specific beauty-related visual prompt (e.g. 'close-up of hand holding a glass file')",
     "cta_text": "SEE THE FIX"
   },
   ... (4 more items following B, C, D, E strategies)
@@ -218,16 +224,11 @@ BOARDS:
 - Gift Guides
 
 CTA VARIATIONS (Short, Punchy, Action-Oriented):
-- A (Pain Point / Hack): "SEE THE FIX", "UNLOCK THE HACK", "STEAL SECRET".
-- B (Aesthetic Goal): "RICH MOM ENERGY", "THAT GIRL VIBE", "YOUR ERA".
-- C (Mistakes / Warning): "STOP DOING THIS", "DERM REVEAL", "BIG MISTAKE".
-- D (Dupe / Money Saver): "TARGET SECRET", "SKIP SEPHORA", "THE $9 DUPE".
-- E (Transformation): "30-DAY RESET", "EXACT ROUTINE", "COPY THIS".
-
-COLOR RULES for Graphic Overlay (Bot will use these):
-- Accent color: #b5838d (Dusty Rose).
-- Text color: Black #1A1A1A or White #FFFFFF (depending on background).
-- Background: 60% Warm White/Cream #F5F0EB.
+- A: "SEE THE FIX", "UNLOCK THE HACK", "STEAL SECRET".
+- B: "RICH MOM ENERGY", "THAT GIRL VIBE", "YOUR ERA".
+- C: "STOP DOING THIS", "DERM REVEAL", "BIG MISTAKE".
+- D: "TARGET SECRET", "SKIP SEPHORA", "THE $9 DUPE".
+- E: "30-DAY RESET", "EXACT ROUTINE", "COPY THIS".
 
 CONTENT MIX:
 A: Lazy Girl Hack / Pain Point, B: Aesthetic Goal, C: Mistake/Warning, D: Secret Find/Dupe, E: Exact Routine.
@@ -715,8 +716,12 @@ async function createBrandedPin(bgBuffer, title, cta, layoutIndex = 0) {
     });
     if (currentLine) lines.push(currentLine.trim());
     
-    const finalLines = lines.slice(0, 5);
-    const maxLineLength = Math.max(...finalLines.map(l => l.length)) || 1;
+    const finalLinesRaw = lines.slice(0, 5);
+    const maxLineLength = Math.max(...finalLinesRaw.map(l => l.length)) || 1;
+
+    const escapeXml = (str) => (str || '').toString().replace(/[<>&'"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '\'': '&apos;', '"': '&quot;' }[c]));
+    const finalLines = finalLinesRaw.map(escapeXml);
+    const safeCta = escapeXml(cta.toUpperCase());
 
     const ctaWidth = Math.max(460, (cta.length * 22) + 160);
     const ctaHeight = 90;
@@ -765,7 +770,7 @@ async function createBrandedPin(bgBuffer, title, cta, layoutIndex = 0) {
                 <rect x="0" y="5" width="${ctaWidth}" height="${ctaHeight}" rx="${ctaHeight/2}" fill="black" fill-opacity="0.4" filter="blur(6px)" />
                 <rect width="${ctaWidth}" height="${ctaHeight}" rx="${ctaHeight/2}" fill="#B5838D" stroke="white" stroke-width="2" stroke-opacity="0.4" />
                 <text x="${ctaWidth / 2}" y="${ctaHeight/2 + 9}" text-anchor="middle" style="fill: white; font-family: 'Avenir Next', 'Helvetica Neue', sans-serif; font-size: 26px; font-weight: 700; text-transform: uppercase; letter-spacing: 5px;">
-                    ${cta.toUpperCase()} ↗
+                    ${safeCta} ↗
                 </text>
             </g>
         </svg>`;
@@ -797,7 +802,7 @@ async function createBrandedPin(bgBuffer, title, cta, layoutIndex = 0) {
             <g transform="translate(${(width - ctaWidth) / 2}, 1300)">
                 <rect width="${ctaWidth}" height="${ctaHeight}" rx="4" fill="white" filter="drop-shadow(0px 8px 16px rgba(0,0,0,0.2))" />
                 <text x="${ctaWidth / 2}" y="${ctaHeight/2 + 9}" text-anchor="middle" style="fill: #1A1A1A; font-family: 'Avenir Next', sans-serif; font-size: 26px; font-weight: 800; letter-spacing: 3px;">
-                    ${cta.toUpperCase()} →
+                    ${safeCta} →
                 </text>
             </g>
         </svg>`;
@@ -835,7 +840,7 @@ async function createBrandedPin(bgBuffer, title, cta, layoutIndex = 0) {
             <g transform="translate(${(width - ctaWidth) / 2}, ${height - 130})">
                 <rect width="${ctaWidth}" height="70" rx="35" fill="#1A1A1A" filter="drop-shadow(0px 5px 10px rgba(0,0,0,0.3))" />
                 <text x="${ctaWidth / 2}" y="45" text-anchor="middle" style="fill: white; font-family: 'Avenir Next', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 5px;">
-                    ${cta.toUpperCase()}
+                    ${safeCta}
                 </text>
             </g>
         </svg>`;
@@ -872,7 +877,7 @@ async function createBrandedPin(bgBuffer, title, cta, layoutIndex = 0) {
             <g transform="translate(${(width - ctaWidth) / 2}, 1350)">
                 <rect width="${ctaWidth}" height="${ctaHeight}" rx="${ctaHeight/2}" fill="none" stroke="#1A1A1A" stroke-width="2" />
                 <text x="${ctaWidth / 2}" y="${ctaHeight/2 + 9}" text-anchor="middle" style="fill: #1A1A1A; font-family: 'Avenir Next', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: 4px;">
-                    ${cta.toUpperCase()} →
+                    ${safeCta} →
                 </text>
             </g>
         </svg>`;
@@ -904,7 +909,7 @@ async function createBrandedPin(bgBuffer, title, cta, layoutIndex = 0) {
             <g transform="translate(${(width - ctaWidth) / 2}, ${boxY + boxHeight - 45})">
                 <rect width="${ctaWidth}" height="90" rx="45" fill="#B5838D" />
                 <text x="${ctaWidth / 2}" y="54" text-anchor="middle" style="fill: white; font-family: 'Avenir Next', sans-serif; font-size: 20px; font-weight: 800; letter-spacing: 4px;">
-                    ${cta.toUpperCase()}
+                    ${safeCta}
                 </text>
             </g>
         </svg>`;
@@ -935,14 +940,15 @@ async function createBrandedPin(bgBuffer, title, cta, layoutIndex = 0) {
             <g transform="translate(${(width - ctaWidth) / 2}, 1300)">
                 <rect width="${ctaWidth}" height="80" rx="40" fill="#B5838D" filter="drop-shadow(0px 4px 8px rgba(181, 131, 141, 0.4))" />
                 <text x="${ctaWidth / 2}" y="48" text-anchor="middle" style="fill: white; font-family: 'Avenir Next', sans-serif; font-size: 20px; font-weight: 800; letter-spacing: 2px;">
-                    ${cta.toUpperCase()}
+                    ${safeCta}
                 </text>
             </g>
         </svg>`;
     } else if (layoutIndex % 8 === 6) {
         // LAYOUT 6: Search Bar Aesthetic
-        let searchQuery = finalLines[0];
-        if (finalLines.length > 1) searchQuery += "...";
+        let searchQueryRaw = finalLinesRaw[0] || '';
+        if (finalLinesRaw.length > 1) searchQueryRaw += "...";
+        let searchQuery = escapeXml(searchQueryRaw.toLowerCase());
 
         let mainFontSize = Math.min(95, Math.floor(900 / (maxLineLength * 0.6)));
         let mainLineSpacing = Math.floor(mainFontSize * 1.25);
@@ -955,7 +961,7 @@ async function createBrandedPin(bgBuffer, title, cta, layoutIndex = 0) {
             <circle cx="160" cy="195" r="14" fill="none" stroke="#657786" stroke-width="4" />
             <line x1="170" y1="205" x2="185" y2="220" stroke="#657786" stroke-width="4" stroke-linecap="round" />
             
-            <text x="210" y="205" text-anchor="start" style="fill: #1A1A1A; font-family: 'Avenir Next', sans-serif; font-size: 32px; font-weight: 500;">${searchQuery.toLowerCase()}|</text>
+            <text x="210" y="205" text-anchor="start" style="fill: #1A1A1A; font-family: 'Avenir Next', sans-serif; font-size: 32px; font-weight: 500;">${searchQuery}|</text>
             
             <g transform="translate(500, 450)">
                 <text text-anchor="middle" style="fill: #F9E5C9; font-family: 'Avenir Next', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: 12px; text-transform: uppercase;">TOP RESULT</text>
@@ -968,7 +974,7 @@ async function createBrandedPin(bgBuffer, title, cta, layoutIndex = 0) {
             <g transform="translate(${(width - ctaWidth) / 2}, 1300)">
                 <rect width="${ctaWidth}" height="80" rx="40" fill="white" />
                 <text x="${ctaWidth / 2}" y="48" text-anchor="middle" style="fill: #1A1A1A; font-family: 'Avenir Next', sans-serif; font-size: 20px; font-weight: 800; letter-spacing: 2px;">
-                    ${cta.toUpperCase()} →
+                    ${safeCta} →
                 </text>
             </g>
         </svg>`;
@@ -1000,7 +1006,7 @@ async function createBrandedPin(bgBuffer, title, cta, layoutIndex = 0) {
             <g transform="translate(${(width - ctaWidth) / 2}, 1300)">
                 <rect width="${ctaWidth}" height="80" rx="40" fill="white" />
                 <text x="${ctaWidth / 2}" y="48" text-anchor="middle" style="fill: #007AFF; font-family: 'Avenir Next', sans-serif; font-size: 20px; font-weight: 800; letter-spacing: 2px;">
-                    ${cta.toUpperCase()}
+                    ${safeCta}
                 </text>
             </g>
         </svg>`;

@@ -6,7 +6,7 @@ engineCode = engineCode.replace('bootEngine();', '');
 
 eval(engineCode);
 
-const backup = JSON.parse(fs.readFileSync('./backups/backup-69d0c5ebbb15840001a5421e-1775409420717.json', 'utf8'));
+const backup = JSON.parse(fs.readFileSync('./backups/backup-682c13418ab79008976d06af-1775411074014.json', 'utf8'));
 
 generatePins(backup.seo_title, backup.rewritten_html, backup.seo_slug)
   .then(() => {
