@@ -132,11 +132,19 @@ function generateGhostJWT() {
 let faviconB64 = null; // sẽ populate khi startup
 async function loadFavicon() {
     try {
+        // Ưu tiên load từ file local icon.png
+        if (fs.existsSync('./icon.png')) {
+            const data = fs.readFileSync('./icon.png');
+            faviconB64 = `data:image/png;base64,${data.toString('base64')}`;
+            console.log('[FAVICON] ✅ Loaded from local icon.png');
+            return;
+        }
+        // Fallback sang URL nếu không có file local
         const res = await axios.get('https://glamgirlshaven.com/public/icon.png', {
             responseType: 'arraybuffer', timeout: 6000
         });
         faviconB64 = `data:image/png;base64,${Buffer.from(res.data).toString('base64')}`;
-        console.log('[FAVICON] ✅ Loaded from glamgirlshaven.com/public/icon.png');
+        console.log('[FAVICON] ✅ Loaded from URL');
     } catch (e) {
         console.log('[FAVICON] ⚠️  Could not load — using letter G fallback:', e.message);
     }
@@ -416,8 +424,11 @@ STRUCTURE (follow exactly)
 
 <figure class='kg-card kg-image-card'><img src='{{IMG_HERO}}' class='kg-image' alt='[keyword-rich descriptive alt text]'></figure>
 
-<h2>[products[0].name]: [Verdict in 4-6 words]</h2>
-<p>[PARAGRAPH 1: High-end editorial breakdown. Specific texture/result detail. Mention 1 key ingredient.]</p>
+PRODUCTS LOOP (repeat this block for EVERY product in metadata.products — index 0, 1, 2... up to the last):
+
+<h2>[products[N].name]: [Verdict in 4-6 words]</h2>
+[Only for products[1]: add <figure class='kg-card kg-image-card'><img src='{{IMG_SECTION_0}}' class='kg-image' alt='[relevant alt]'></figure> after the h2]
+<p>[Editorial breakdown — specific texture/result/ingredient detail. 2-3 sentences.]</p>
 
 <!--kg-card-begin: html-->
 <div style='margin:18px 0;padding:15px;background:#FDFBFB;border:1px solid #F2EBEB;border-radius:4px;'>
@@ -425,49 +436,24 @@ STRUCTURE (follow exactly)
     <div style='flex:1;'>
       <p style='font-family:sans-serif;font-size:12px;font-weight:700;color:#2D6A4F;margin:0 0 8px 0;'>THE PROS</p>
       <ul style='margin:0;padding-left:14px;font-family:sans-serif;font-size:13px;color:#4A3F41;line-height:1.5;'>
-        [3 bullet points from metadata.pros]
+        [li items from products[N].pros]
       </ul>
     </div>
     <div style='flex:1;'>
       <p style='font-family:sans-serif;font-size:12px;font-weight:700;color:#9B2226;margin:0 0 8px 0;'>THE CONS</p>
       <ul style='margin:0;padding-left:14px;font-family:sans-serif;font-size:13px;color:#4A3F41;line-height:1.5;'>
-        [2 bullet points from metadata.cons]
+        [li items from products[N].cons]
       </ul>
     </div>
   </div>
 </div>
 <!--kg-card-end: html-->
 
-<p><strong>Verdict:</strong> [Final 1-sentence decision on who this is for + price_indicator/anchor info.]</p>
-<p>[1-sentence social proof for products[0]: star rating + review count]</p>
-{{AFFILIATE_BLOCK_0}}
+<p><strong>Verdict:</strong> [1-sentence decision: who it's for + price_indicator]</p>
+<p>[1-sentence social proof: star_rating + review_count]</p>
+{{AFFILIATE_BLOCK_N}} ← replace N with the actual product index (0, 1, 2...)
 
-<h2>[products[1].name]: [Verdict in 4-6 words]</h2>
-<figure class='kg-card kg-image-card'><img src='{{IMG_SECTION_0}}' class='kg-image' alt='[relevant alt]'></figure>
-<p>[PARAGRAPH 1: Editorial breakdown — authentic, insider feel.]</p>
-
-<!--kg-card-begin: html-->
-<div style='margin:18px 0;padding:15px;background:#FDFBFB;border:1px solid #F2EBEB;border-radius:4px;'>
-  <div style='display:flex;gap:20px;'>
-    <div style='flex:1;'>
-      <p style='font-family:sans-serif;font-size:12px;font-weight:700;color:#2D6A4F;margin:0 0 8px 0;'>THE PROS</p>
-      <ul style='margin:0;padding-left:14px;font-family:sans-serif;font-size:13px;color:#4A3F41;line-height:1.5;'>
-        [Pros for products[1]]
-      </ul>
-    </div>
-    <div style='flex:1;'>
-      <p style='font-family:sans-serif;font-size:12px;font-weight:700;color:#9B2226;margin:0 0 8px 0;'>THE CONS</p>
-      <ul style='margin:0;padding-left:14px;font-family:sans-serif;font-size:13px;color:#4A3F41;line-height:1.5;'>
-        [Cons for products[1]]
-      </ul>
-    </div>
-  </div>
-</div>
-<!--kg-card-end: html-->
-
-<p><strong>Verdict:</strong> [Final recommendation sentence]</p>
-<p>[1-sentence social proof]</p>
-{{AFFILIATE_BLOCK_1}}
+END PRODUCTS LOOP.
 
 <h2>How to Choose: [Product Category] Comparison</h2>
 <figure class='kg-card kg-image-card'><img src='{{IMG_SECTION_1}}' class='kg-image' alt='[relevant alt]'></figure>
@@ -507,8 +493,7 @@ STRUCTURE (follow exactly)
 </div>
 <!--kg-card-end: html-->
 
-<p>[1 sentence social proof for products[2]: star rating + review count]</p>
-{{AFFILIATE_BLOCK_2}} <!--← THIS BLOCK IS FOR products[2] ONLY-->
+
 
 <h2>Frequently Asked Questions</h2>
 <h3>[Real question from Google's People Also Ask for this topic — must be specific]</h3>
@@ -658,7 +643,12 @@ async function processPost(post) {
     console.log(`\n[AI] Phase 2: Writing ${CONFIG.content.targetWords}-word content (Gemini)...`);
     const htmlRes = await callGemini(
         PROMPT_HTML,
-        `Write an 800-1000 word blog post...`,
+        `Write an 800-1000 word product recommendation post for GlamGirls Haven.
+
+METADATA:
+${JSON.stringify(meta, null, 2)}
+
+This is a REWRITE of a legacy post. Use the products in the metadata as real recommendations. Include specific details about each product (texture, scent if applicable, who it's best for, honest con). Original content for context:\n${plainText.substring(0, 2000)}`,
         CONFIG.content.maxTokens,
         'text/plain'
     );
